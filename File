@@ -1,0 +1,62 @@
+# simple_file_upload.py
+import http.server
+import socketserver
+import cgi
+import os
+from datetime import datetime
+
+PORT = 8080
+UPLOAD_DIR = "StudentFiles"
+
+# Make sure upload folder exists
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+class UploadHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        # Show upload page
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b"""
+        <html><head><title>Upload File</title></head>
+        <body>
+        <h2>Upload your file here</h2>
+        <form enctype="multipart/form-data" method="post">
+            <input name="file" type="file" required/>
+            <input type="submit" value="Upload"/>
+        </form>
+        </body></html>
+        """)
+
+    def do_POST(self):
+        # Handle file upload
+        form = cgi.FieldStorage(
+            fp=self.rfile,
+            headers=self.headers,
+            environ={'REQUEST_METHOD':'POST'}
+        )
+        file_item = form['file']
+        if file_item.filename:
+            # Create unique filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            safe_name = os.path.basename(file_item.filename)
+            save_path = os.path.join(UPLOAD_DIR, f"{timestamp}-{safe_name}")
+            
+            with open(save_path, 'wb') as f:
+                f.write(file_item.file.read())
+            
+            message = f"Ã¢Å“â€¦ File '{safe_name}' uploaded successfully!"
+        else:
+            message = "Ã¢Å¡  No file selected."
+
+        # Send confirmation back
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(f"<html><body><h2>{message}</h2><a href='/'>Upload another file</a></body></html>".encode())
+
+Handler = UploadHandler
+
+with socketserver.TCPServer(("", PORT), Handler) as httpd:
+    print(f"Ã°Å¸â€œÂ¡ File upload server running at http://<your-ip>:{PORT}")
+    print(f"Ã°Å¸â€œâ€š Uploaded files will be saved in: {UPLOAD_DIR}")
+    httpd.serve_forever()
